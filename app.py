@@ -235,7 +235,6 @@
 # else:
 #     st.write("No transactions found.")
 
-
 import os
 import pandas as pd
 import streamlit as st
@@ -249,11 +248,13 @@ def load_data():
     if os.path.exists(FILE_PATH) and os.path.getsize(FILE_PATH) > 0:
         try:
             data = pd.read_csv(FILE_PATH)
+            if 'Include Spending' not in data.columns:
+                data['Include Spending'] = 'N/A'  # Add default value for missing column
             return data
         except pd.errors.EmptyDataError:
-            return pd.DataFrame(columns=["Date", "Transaction Type", "Amount", "Mode", "Description"])
+            return pd.DataFrame(columns=["Date", "Transaction Type", "Amount", "Mode", "Description", "Include Spending"])
     else:
-        return pd.DataFrame(columns=["Date", "Transaction Type", "Amount", "Mode", "Description"])
+        return pd.DataFrame(columns=["Date", "Transaction Type", "Amount", "Mode", "Description", "Include Spending"])
 
 # Save transaction data to CSV
 def save_data(data):
@@ -263,20 +264,21 @@ def save_data(data):
 def delete_entry(data, index):
     return data.drop(index)
 
-# Display balance and total spending summary with user confirmation
+# Display balance and total spending summary
+# Return balances for further use in other sections
 def display_balance_and_spending(data):
     cash_in_hand = data[data['Mode'] == 'Cash']['Amount'].sum()
     online_balance = data[data['Mode'] == 'Online']['Amount'].sum()
     total_balance = cash_in_hand + online_balance
-    
+
     deposited_cash = data[(data['Mode'] == 'Cash') & (data['Transaction Type'] == 'IN')]['Amount'].sum()
     deposited_online = data[(data['Mode'] == 'Online') & (data['Transaction Type'] == 'IN')]['Amount'].sum()
-    
-    # Get OUT spending and ask user for confirmation
-    out_spending = data[data['Transaction Type'] == 'OUT']['Amount'].sum()
-    include_out_spending = st.checkbox("Include 'OUT' transactions in total spending?")
-    
-    total_spending = out_spending if include_out_spending else 0
+
+    # Ensure 'Include Spending' exists before calculating total spending
+    if 'Include Spending' in data.columns:
+        total_spending = abs(data[(data['Transaction Type'] == 'OUT') & (data['Include Spending'] == 'Yes')]['Amount'].sum())
+    else:
+        total_spending = 0
 
     st.header("Balance and Spending Summary")
     st.write(f"**Cash in Hand:** ₹{cash_in_hand}")
@@ -284,16 +286,18 @@ def display_balance_and_spending(data):
     st.write(f"**Total Balance:** ₹{total_balance}")
     st.write(f"**Deposited Cash:** ₹{deposited_cash}")
     st.write(f"**Deposited Online Money:** ₹{deposited_online}")
-    st.write(f"**Total Spending (Confirmed):** ₹{total_spending}")
+    st.write(f"**Total Spending:** ₹{total_spending}")
+
+    return cash_in_hand, online_balance
 
 # Main app layout
-st.title("Transaction Manager")
+st.title("Namra Transaction Manager")
 
 # Load existing data
 data = load_data()
 
 # Display balance and total spending on top
-display_balance_and_spending(data)
+cash_in_hand, online_balance = display_balance_and_spending(data)
 
 # Transaction input section
 transaction_type = st.radio("Select Transaction Type", ("IN", "OUT"))
@@ -310,7 +314,8 @@ if transaction_type == "IN":
                 "Transaction Type": "IN",
                 "Amount": amount,
                 "Mode": mode,
-                "Description": description
+                "Description": description,
+                "Include Spending": "N/A"
             }])
             # Append the new entry to the existing data and save
             data = pd.concat([data, new_entry], ignore_index=True)
@@ -323,19 +328,36 @@ elif transaction_type == "OUT":
     amount = st.number_input("Enter Amount to Deduct", min_value=0)
     mode = st.selectbox("Select Mode", ("Cash", "Online"))
     description = st.text_area("Add Description", "")
+    include_in_spending = st.radio("Include this transaction in total spending?", ("Yes", "No"))
+
     if st.button("Deduct Transaction"):
         if amount > 0:
+            deduction_amount = -amount
             new_entry = pd.DataFrame([{
                 "Date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "Transaction Type": "OUT",
-                "Amount": -amount,
+                "Amount": deduction_amount,
                 "Mode": mode,
-                "Description": description
+                "Description": description,
+                "Include Spending": include_in_spending
             }])
+
             # Append the new entry to the existing data and save
             data = pd.concat([data, new_entry], ignore_index=True)
+
+            # Adjust balance regardless of spending inclusion
+            if mode == 'Cash':
+                cash_in_hand += deduction_amount
+            elif mode == 'Online':
+                online_balance += deduction_amount
+
+            # Save updated data
             save_data(data)
+
             st.success(f"Deducted ₹{amount} from {mode}.")
+
+            if include_in_spending == "No":
+                st.info("This transaction will not be included in total spending.")
         else:
             st.error("Please enter a valid amount.")
 
@@ -344,11 +366,11 @@ st.header("Transaction History")
 if not data.empty:
     data['Date'] = pd.to_datetime(data['Date'])
     # Display transactions in a table
-    data_display = st.dataframe(data)
+    st.dataframe(data)
 
     # Create a delete button for each row
     delete_index = st.number_input("Enter the row number to delete (0-based index)", min_value=0, max_value=len(data)-1, step=1)
-    
+
     if st.button("Delete Selected Entry"):
         # Ensure the row exists
         if delete_index < len(data):

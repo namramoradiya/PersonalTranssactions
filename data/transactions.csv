@@ -1,2 +1,13 @@
-Date,Transaction Type,Amount,Mode,Description
-2024-12-30 22:45:29,IN,10000,Online,
+Date,Transaction Type,Amount,Mode,Description,Include Spending
+2025-01-10 21:24:07,IN,23998,Online,Online Balance,
+2025-01-10 21:24:27,IN,650,Cash,Cash Balance,
+2025-01-10 21:25:19,OUT,-15,Cash,Power Cell,Yes
+2025-01-10 21:25:40,OUT,-100,Cash,Dinner,Yes
+2025-01-10 21:26:04,IN,5,Online,GPay Cashback,
+2025-01-10 21:27:17,OUT,-2300,Online,Magic Meal Dinner Pass,Yes
+2025-01-10 21:27:39,OUT,-300,Online,Pune Metro Card Top Up,Yes
+2025-01-10 21:27:59,OUT,-121,Online,Lunch,Yes
+2025-01-10 21:28:20,OUT,-6000,Online,January Rent,Yes
+2025-01-10 21:29:05,OUT,-200,Online,Rutvik Exchange,No
+2025-01-10 21:30:06,IN,200,Cash,Rutvik Exchange,
+2025-01-10 21:32:07,OUT,-30,Online,Lunch,Yes
